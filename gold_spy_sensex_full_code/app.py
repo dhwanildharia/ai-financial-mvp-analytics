@@ -6,9 +6,6 @@ from services.gpt_connector import ask_gpt
 st.set_page_config(page_title="Gold vs SPY vs Sensex with AI", layout="wide")
 st.title("📊 Gold vs S&P 500 vs BSE Sensex — with AI Analysis")
 
-# Debug: list data folder
-st.sidebar.write("Data files:", os.listdir("data"))
-
 # Load merged data
 df = pd.read_csv('data/merged_data_open_close.csv', parse_dates=['Date'])
 df.set_index('Date', inplace=True)
