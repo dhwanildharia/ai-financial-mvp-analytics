@@ -1,8 +1,8 @@
 import os
 import streamlit as st
 import pandas as pd
+import openai
 from services.gpt_connector import ask_gpt, list_models
-from openai.error import OpenAIError
 
 st.set_page_config(page_title="Gold vs SPY vs Sensex with AI", layout="wide")
 st.title("📊 Gold vs S&P 500 vs BSE Sensex — with AI Analysis")
@@ -51,6 +51,9 @@ if st.button("Ask AI"):
         try:
             answer = ask_gpt(prompt)
             st.markdown(answer)
-        except OpenAIError as e:
+        except openai.OpenAIError as e:
             st.error(f"❌ OpenAI API error: {e}")
+        except Exception as e:
+            st.error(f"❌ Unexpected error: {e}")
+
 
