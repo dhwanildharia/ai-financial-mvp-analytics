@@ -4,8 +4,11 @@ import openai
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def ask_gpt(prompt: str) -> str:
-    response = openai.ChatCompletion.create(
+    # For older/newer SDKs, this endpoint is more stable
+    resp = openai.Completion.create(
         model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
+        prompt=prompt,
+        max_tokens=500,
+        temperature=0.5,
     )
-    return response.choices[0].message.content
+    return resp.choices[0].text.strip()
