@@ -15,26 +15,11 @@ _FUNCTIONS = [
                     "description": "Type of analysis to perform",
                     "enum": ["correlation", "growth", "best_day", "head", "tail"]
                 },
-                "column_x": {
-                    "type": "string",
-                    "description": "First column name (for correlation)"
-                },
-                "column_y": {
-                    "type": "string",
-                    "description": "Second column name (for correlation)"
-                },
-                "years": {
-                    "type": "integer",
-                    "description": "Number of years for growth calculation"
-                },
-                "index": {
-                    "type": "string",
-                    "description": "Column name (e.g. SPY_Close or Sensex_Close) for best_day"
-                },
-                "n": {
-                    "type": "integer",
-                    "description": "Number of rows for head/tail"
-                }
+                "column_x": {"type": "string", "description": "First column name (for correlation)"},
+                "column_y": {"type": "string", "description": "Second column name (for correlation)"},
+                "years": {"type": "integer", "description": "Number of years for growth calculation"},
+                "index": {"type": "string", "description": "Column name for best_day"},
+                "n": {"type": "integer", "description": "Number of rows for head/tail"}
             },
             "required": ["operation"]
         }
