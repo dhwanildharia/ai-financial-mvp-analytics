@@ -2,7 +2,7 @@ import os
 import json
 import streamlit as st
 import pandas as pd
-from services.gpt_connector import ask_gpt
+from services.gpt_connector import ask_gpt, list_models
 
 st.set_page_config(page_title="AI Data Chat", layout="wide")
 st.title("📊 Gold vs SPY vs Sensex — AI Q&A with Data Integration")
@@ -17,10 +17,18 @@ DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "merged_data_open_close.csv")
 df = load_data(CSV_PATH)
 
-st.sidebar.header("Data file")
-st.sidebar.write(os.listdir(DATA_DIR))
+st.sidebar.header("Data files")
+st.sidebar.write(sorted(os.listdir(DATA_DIR)))
 
-# Function to execute calls
+with st.sidebar.expander("🔧 Model settings"):
+    try:
+        models = list_models()
+        st.write(models)
+    except Exception as e:
+        st.write("Error listing models:", e)
+    st.write("Current model:", os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"))
+    st.markdown("Set OPENAI_MODEL in Secrets to choose model.")
+
 def query_data(operation, column_x=None, column_y=None, years=5, index=None, n=5):
     if operation == "correlation":
         corr = df[column_x].corr(df[column_y])
@@ -43,22 +51,24 @@ def query_data(operation, column_x=None, column_y=None, years=5, index=None, n=5
     else:
         return {"error": f"Unknown operation {operation}"}
 
-st.header("🤖 Ask AI about the data")
-query = st.text_input("Your question")
-if st.button("Ask AI"):
+def process_query(query: str) -> str:
     messages = [
-        {"role":"system","content":"You have access to the dataset via 'query_data' function."},
-        {"role":"user","content":query}
+        {"role": "system", "content": "You are a financial data assistant. Use 'query_data' to fetch data."},
+        {"role": "user", "content": query}
     ]
-    response = ask_gpt(messages)
-    msg = response.choices[0].message
-    if msg.get("function_call"):
+    resp = ask_gpt(messages)
+    msg = resp.choices[0].message
+    if msg.function_call:
         args = json.loads(msg.function_call.arguments)
         result = query_data(**args)
         messages.append(msg)
         messages.append({"role":"function","name":msg.function_call.name,"content":json.dumps(result)})
         final = ask_gpt(messages).choices[0].message.content
-        st.markdown(final)
-    else:
-        st.markdown(msg.content)
+        return final
+    return msg.content
 
+st.header("🤖 Ask AI about the data")
+user_query = st.text_input("Enter your question here")
+if st.button("Ask AI"):
+    answer = process_query(user_query)
+    st.markdown(answer)
