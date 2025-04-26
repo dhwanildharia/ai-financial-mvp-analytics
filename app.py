@@ -2,7 +2,7 @@ import os
 import json
 import streamlit as st
 import pandas as pd
-from services.gpt_connector import ask_gpt, list_models
+from services.gpt_connector import ask_gpt
 
 # Initialize session state for chat history
 if 'history' not in st.session_state:
