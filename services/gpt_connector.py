@@ -25,15 +25,3 @@ _FUNCTIONS = [
         }
     }
 ]
-
-def ask_gpt(messages: list[dict]) -> dict:
-    return _client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
-        messages=messages,
-        functions=_FUNCTIONS,
-        function_call="auto",
-    )
-
-def list_models() -> list[str]:
-    resp = _client.models.list()
-    return [m.id for m in resp.data]
