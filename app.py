@@ -4,9 +4,14 @@ import streamlit as st
 import pandas as pd
 from services.gpt_connector import ask_gpt, list_models
 
+# Initialize session state for chat history
+if 'history' not in st.session_state:
+    st.session_state.history = []
+
 st.set_page_config(page_title="AI Data Chat", layout="wide")
 st.title("📊 Gold vs SPY vs Sensex — AI Q&A with Data Integration")
 
+# Load data
 @st.cache_data
 def load_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path, parse_dates=["Date"])
@@ -17,9 +22,9 @@ DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "merged_data_open_close.csv")
 df = load_data(CSV_PATH)
 
+# Sidebar
 st.sidebar.header("Data files")
 st.sidebar.write(sorted(os.listdir(DATA_DIR)))
-
 with st.sidebar.expander("🔧 Model settings"):
     try:
         models = list_models()
@@ -27,8 +32,8 @@ with st.sidebar.expander("🔧 Model settings"):
     except Exception as e:
         st.write("Error listing models:", e)
     st.write("Current model:", os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"))
-    st.markdown("Set OPENAI_MODEL in Secrets to choose model.")
 
+# Functions
 def query_data(operation, column_x=None, column_y=None, years=5, index=None, n=5):
     if operation == "correlation":
         corr = df[column_x].corr(df[column_y])
@@ -52,6 +57,9 @@ def query_data(operation, column_x=None, column_y=None, years=5, index=None, n=5
         return {"error": f"Unknown operation {operation}"}
 
 def process_query(query: str) -> str:
+    # Store user question in history
+    st.session_state.history.append(("user", query))
+
     messages = [
         {"role": "system", "content": "You are a financial data assistant. Use 'query_data' to fetch data."},
         {"role": "user", "content": query}
@@ -64,11 +72,23 @@ def process_query(query: str) -> str:
         messages.append(msg)
         messages.append({"role":"function","name":msg.function_call.name,"content":json.dumps(result)})
         final = ask_gpt(messages).choices[0].message.content
-        return final
-    return msg.content
+    else:
+        final = msg.content
 
+    # Store assistant response in history
+    st.session_state.history.append(("assistant", final))
+    return final
+
+# Display chat history
+for role, content in st.session_state.history:
+    if role == "user":
+        st.markdown(f"**You:** {content}")
+    else:
+        st.markdown(f"**GPT:** {content}")
+
+# Input
 st.header("🤖 Ask AI about the data")
-user_query = st.text_input("Enter your question here")
+user_query = st.text_input("Enter your question here", key="input")
 if st.button("Ask AI"):
     answer = process_query(user_query)
-    st.markdown(answer)
+    st.experimental_rerun()
