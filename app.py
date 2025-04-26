@@ -1,59 +1,64 @@
 import os
+import json
 import streamlit as st
 import pandas as pd
-import openai
-from services.gpt_connector import ask_gpt, list_models
+from services.gpt_connector import ask_gpt
 
-st.set_page_config(page_title="Gold vs SPY vs Sensex with AI", layout="wide")
-st.title("📊 Gold vs S&P 500 vs BSE Sensex — with AI Analysis")
+st.set_page_config(page_title="AI Data Chat", layout="wide")
+st.title("📊 Gold vs SPY vs Sensex — AI Q&A with Data Integration")
+
+@st.cache_data
+def load_data(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, parse_dates=["Date"])
+    df.set_index("Date", inplace=True)
+    return df
 
 DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "merged_data_open_close.csv")
+df = load_data(CSV_PATH)
 
-# Sanity checks
-if not os.path.isdir(DATA_DIR):
-    st.error(f"❌ Could not find `{DATA_DIR}` folder.")
-    st.stop()
-if not os.path.isfile(CSV_PATH):
-    st.error(f"❌ Missing data file: `{CSV_PATH}`")
-    st.stop()
+st.sidebar.header("Data file")
+st.sidebar.write(os.listdir(DATA_DIR))
 
-# Sidebar: list data files & models
-st.sidebar.header("Data files")
-st.sidebar.write(sorted(os.listdir(DATA_DIR)))
+# Function to execute calls
+def query_data(operation, column_x=None, column_y=None, years=5, index=None, n=5):
+    if operation == "correlation":
+        corr = df[column_x].corr(df[column_y])
+        return {"correlation": corr}
+    elif operation == "growth":
+        latest = df.index.max()
+        start = latest - pd.DateOffset(years=years)
+        sub = df.loc[df.index >= start]
+        return {
+            "spy_growth_pct": (sub["SPY_Close"].iloc[-1] / sub["SPY_Close"].iloc[0] - 1) * 100,
+            "sensex_growth_pct": (sub["Sensex_Close"].iloc[-1] / sub["Sensex_Close"].iloc[0] - 1) * 100
+        }
+    elif operation == "best_day":
+        pct = df[index].pct_change().dropna()
+        return {"best_day": pct.groupby(pct.index.day_name()).mean().idxmax()}
+    elif operation == "head":
+        return {"data": df.head(n).reset_index().to_dict(orient="records")}
+    elif operation == "tail":
+        return {"data": df.tail(n).reset_index().to_dict(orient="records")}
+    else:
+        return {"error": f"Unknown operation {operation}"}
 
-with st.sidebar.expander("🔧 Model configuration"):
-    st.write("**Available models:**")
-    try:
-        models = list_models()
-        st.write(models)
-    except Exception as e:
-        st.write("Error listing models:", e)
-    st.write("**Current model:**", os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"))
-    st.markdown(
-        "Set `OPENAI_MODEL` in Streamlit **Secrets** to your desired model ID."
-    )
-
-# Load & plot data
-df = pd.read_csv(CSV_PATH, parse_dates=["Date"])
-df.set_index("Date", inplace=True)
-st.line_chart(df)
-
-# AI Chat interface
 st.header("🤖 Ask AI about the data")
-query = st.text_input("Enter your question here")
+query = st.text_input("Your question")
 if st.button("Ask AI"):
-    with st.spinner("Thinking..."):
-        prompt = (
-            f"You are a financial data assistant. The dataframe has columns: "
-            f"{', '.join(df.columns)}. Using only this data, answer:\n\n{query}"
-        )
-        try:
-            answer = ask_gpt(prompt)
-            st.markdown(answer)
-        except openai.OpenAIError as e:
-            st.error(f"❌ OpenAI API error: {e}")
-        except Exception as e:
-            st.error(f"❌ Unexpected error: {e}")
-
+    messages = [
+        {"role":"system","content":"You have access to the dataset via 'query_data' function."},
+        {"role":"user","content":query}
+    ]
+    response = ask_gpt(messages)
+    msg = response.choices[0].message
+    if msg.get("function_call"):
+        args = json.loads(msg.function_call.arguments)
+        result = query_data(**args)
+        messages.append(msg)
+        messages.append({"role":"function","name":msg.function_call.name,"content":json.dumps(result)})
+        final = ask_gpt(messages).choices[0].message.content
+        st.markdown(final)
+    else:
+        st.markdown(msg.content)
 
