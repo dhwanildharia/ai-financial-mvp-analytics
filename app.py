@@ -76,12 +76,15 @@ def process(query):
 
 def render_history():
     for m in st.session_state.history:
-        if m['role'] == 'user':
+        role = m.get('role')
+        if role == 'user':
             st.markdown(f"**You:** {m['content']}")
-        elif m['role'] == 'assistant':
+        elif role == 'assistant':
             st.markdown(f"**GPT:** {m['content']}")
-        else:
-            st.markdown(f"**Function {m['name']} returned:** {m['content']}")
+        elif role == 'function':
+            func_name = m.get('name', 'query_data')
+            st.markdown(f"**Function {func_name} returned:** {m['content']}")
+        # ignore 'system' or other roles
 
 render_history()
 st.text_input("Enter your question here", key='input')
